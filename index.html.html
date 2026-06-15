@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>rxmv|hub — каталог видео для друзей</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+</head>
+<body>
+    <header class="header">
+        <div class="logo">
+            rxmv<span class="logo-accent">hub</span>
+        </div>
+        <input type="text" class="search-bar" placeholder="Поиск видео...">
+    </header>
+
+    <div class="categories"></div>
+
+    <div class="video-grid"></div>
+    <div class="loader" style="display: none;"></div>
+    <div class="no-results" style="display: none;">Видео не найдено</div>
+
+    <footer class="footer">
+        © rxmvhub 2024 · <a href="https://t.me/rxmvhub_bot" target="_blank" style="color: var(--text-secondary);">Telegram бот</a>
+    </footer>
+
+    <script src="app.js"></script>
+</body>
+</html>
