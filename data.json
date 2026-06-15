@@ -1,0 +1,34 @@
+{
+  "videos": [
+    {
+      "id": 1,
+      "title": "Кот-каратист против лазерной указки",
+      "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "thumbnail": "https://img.youtube.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+      "category": "Приколы",
+      "added_by": 5980528489,
+      "date": "2024-01-01"
+    },
+    {
+      "id": 2,
+      "title": "10 невероятных моментов в футболе",
+      "url": "https://www.youtube.com/watch?v=3JZ_D3ELwOQ",
+      "thumbnail": "https://img.youtube.com/vi/3JZ_D3ELwOQ/hqdefault.jpg",
+      "category": "Моменты",
+      "added_by": 5980528489,
+      "date": "2024-01-02"
+    },
+    {
+      "id": 3,
+      "title": "Случайный рандомный прикол дня",
+      "url": "https://www.youtube.com/watch?v=5qap5aO4i9A",
+      "thumbnail": "https://img.youtube.com/vi/5qap5aO4i9A/hqdefault.jpg",
+      "category": "Рандом",
+      "added_by": 5980528489,
+      "date": "2024-01-03"
+    }
+  ],
+  "categories": ["Приколы", "Моменты", "Рандом", "Лучшее"],
+  "admins": [5980528489],
+  "next_id": 4
+}
