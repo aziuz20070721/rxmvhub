@@ -1,10 +1,14 @@
 import os
+import sys
 import json
 import base64
 import asyncio
 from datetime import datetime
 from typing import Dict, Any, Optional
 from urllib.parse import urlparse, parse_qs
+
+# Принудительный вывод в лог без буферизации
+sys.stdout.reconfigure(line_buffering=True)
 
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters import Command
@@ -23,6 +27,11 @@ DATA_FILE = "data.json"
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{DATA_FILE}"
 RAW_DATA_URL = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/{DATA_FILE}"
 
+print("🔧 Бот запускается...", flush=True)
+print(f"OWNER_ID: {OWNER_ID}", flush=True)
+print(f"BOT_TOKEN: {'***' if BOT_TOKEN else 'НЕТ ТОКЕНА'}", flush=True)
+print(f"GITHUB_TOKEN: {'***' if GITHUB_TOKEN else 'НЕТ ТОКЕНА'}", flush=True)
+
 bot = Bot(token=BOT_TOKEN)
 storage = MemoryStorage()
 dp = Dispatcher(storage=storage)
@@ -37,23 +46,27 @@ class AddVideoStates(StatesGroup):
 
 # ---------- Работа с данными ----------
 async def read_data() -> Optional[Dict[str, Any]]:
+    print("📖 Читаем data.json...", flush=True)
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(RAW_DATA_URL) as resp:
                 if resp.status == 200:
-                    return await resp.json()
+                    data = await resp.json()
+                    print("✅ data.json загружен", flush=True)
+                    return data
                 else:
-                    print(f"read_data: HTTP {resp.status}")
+                    print(f"❌ Ошибка чтения: {resp.status}", flush=True)
                     return None
     except Exception as e:
-        print(f"read_data error: {e}")
+        print(f"❌ Исключение при чтении: {e}", flush=True)
         return None
 
 async def write_data(data: Dict[str, Any], commit_message: str) -> bool:
+    print("✍️ Записываем data.json...", flush=True)
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
     try:
         async with aiohttp.ClientSession() as session:
-            # получаем SHA текущего файла
+            # Получаем SHA
             async with session.get(GITHUB_API_URL, headers=headers) as resp:
                 if resp.status == 200:
                     current = await resp.json()
@@ -61,7 +74,7 @@ async def write_data(data: Dict[str, Any], commit_message: str) -> bool:
                 elif resp.status == 404:
                     sha = None
                 else:
-                    print(f"write_data GET sha: {resp.status}")
+                    print(f"❌ Не удалось получить SHA: {resp.status}", flush=True)
                     return False
 
             content_str = json.dumps(data, indent=2, ensure_ascii=False)
@@ -71,13 +84,15 @@ async def write_data(data: Dict[str, Any], commit_message: str) -> bool:
                 payload["sha"] = sha
 
             async with session.put(GITHUB_API_URL, headers=headers, json=payload) as resp:
-                success = resp.status in (200, 201)
-                if not success:
+                if resp.status in (200, 201):
+                    print("✅ Запись успешна", flush=True)
+                    return True
+                else:
                     text = await resp.text()
-                    print(f"write_data PUT error: {resp.status} - {text}")
-                return success
+                    print(f"❌ Ошибка записи: {resp.status} - {text}", flush=True)
+                    return False
     except Exception as e:
-        print(f"write_data exception: {e}")
+        print(f"❌ Исключение при записи: {e}", flush=True)
         return False
 
 # ---------- Вспомогательные ----------
@@ -98,6 +113,7 @@ def is_admin(user_id: int, data: Dict) -> bool:
 # ---------- Команды ----------
 @dp.message(Command("start"))
 async def cmd_start(message: Message):
+    print(f"Команда /start от {message.from_user.id}", flush=True)
     data = await read_data()
     if not data:
         await message.answer("❌ Ошибка загрузки данных. Попробуйте позже.")
@@ -124,6 +140,7 @@ async def cmd_cancel(message: Message, state: FSMContext):
 
 @dp.message(Command("list"))
 async def cmd_list(message: Message):
+    print(f"Команда /list от {message.from_user.id}", flush=True)
     data = await read_data()
     if not data:
         await message.answer("❌ Ошибка загрузки данных.")
@@ -142,6 +159,7 @@ async def cmd_list(message: Message):
 
 @dp.message(Command("delete"))
 async def cmd_delete(message: Message):
+    print(f"Команда /delete от {message.from_user.id}", flush=True)
     data = await read_data()
     if not data:
         await message.answer("❌ Ошибка загрузки данных.")
@@ -170,6 +188,7 @@ async def cmd_delete(message: Message):
         await message.answer("❌ Ошибка сохранения в GitHub. Проверьте токены.")
 
 async def modify_admin(message: Message, add: bool):
+    print(f"Команда {'addadmin' if add else 'removeadmin'} от {message.from_user.id}", flush=True)
     if message.from_user.id != OWNER_ID:
         await message.answer("⛔ Только создатель может управлять админами.")
         return
@@ -226,6 +245,7 @@ async def remove_admin(message: Message):
 
 @dp.message(Command("admins"))
 async def list_admins(message: Message):
+    print(f"Команда /admins от {message.from_user.id}", flush=True)
     if message.from_user.id != OWNER_ID:
         await message.answer("⛔ Только создатель может просматривать список админов.")
         return
@@ -250,6 +270,7 @@ async def list_admins(message: Message):
 # ---------- ADD FSM ----------
 @dp.message(Command("add"))
 async def cmd_add_start(message: Message, state: FSMContext):
+    print(f"Команда /add от {message.from_user.id}", flush=True)
     data = await read_data()
     if not data:
         await message.answer("❌ Ошибка загрузки данных.")
@@ -383,9 +404,14 @@ async def save_video(msg: Message, state: FSMContext):
 
 # ---------- Запуск бота ----------
 async def main():
+    print("🚀 Запускаем бота...", flush=True)
     await bot.delete_webhook(drop_pending_updates=True)
-    print("Бот запущен и готов к работе")
+    print("✅ Webhook удалён", flush=True)
     await dp.start_polling(bot)
+    print("❌ Polling остановлен (это не должно произойти)", flush=True)
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print("Бот остановлен вручную", flush=True)
