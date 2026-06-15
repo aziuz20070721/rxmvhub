@@ -1,9 +1,9 @@
 name: Telegram Bot Runner
 
 on:
-  workflow_dispatch:               # ручной запуск
+  workflow_dispatch:
   schedule:
-    - cron: '*/55 * * * *'         # каждые 55 минут
+    - cron: '*/55 * * * *'
   push:
     branches: [ main ]
 
@@ -14,28 +14,20 @@ concurrency:
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 50            # меньше 55 минут, чтобы избежать наложения
-
+    timeout-minutes: 50
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v4
         with:
           python-version: '3.11'
-
-      - name: Cache pip dependencies
+      - name: Cache pip
         uses: actions/cache@v3
         with:
           path: ~/.cache/pip
           key: pip-${{ hashFiles('requirements.txt') }}
-          restore-keys: pip-
-
       - name: Install dependencies
         run: pip install -r requirements.txt
-
-      - name: Run Telegram bot
+      - name: Run bot
         env:
           BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.REPO_TOKEN }}
