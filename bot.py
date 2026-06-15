@@ -21,6 +21,7 @@ GITHUB_TOKEN = os.environ["GITHUB_TOKEN"]
 GITHUB_REPO = "aziuz20070721/rxmvhub"
 DATA_FILE = "data.json"
 GITHUB_API_URL = f"https://api.github.com/repos/{GITHUB_REPO}/contents/{DATA_FILE}"
+RAW_DATA_URL = f"https://raw.githubusercontent.com/{GITHUB_REPO}/main/{DATA_FILE}"
 
 # ---------- Инициализация бота ----------
 bot = Bot(token=BOT_TOKEN)
@@ -35,21 +36,20 @@ class AddVideoStates(StatesGroup):
     waiting_for_category = State()
     waiting_for_new_category = State()
 
-# ---------- Работа с GitHub API ----------
+# ---------- Работа с GitHub ----------
 async def read_data() -> Optional[Dict[str, Any]]:
-    """Читает data.json из репозитория и возвращает dict."""
-    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+    """Читает data.json через raw.githubusercontent.com (без токена)"""
     async with aiohttp.ClientSession() as session:
-        async with session.get(GITHUB_API_URL, headers=headers) as resp:
+        async with session.get(RAW_DATA_URL) as resp:
             if resp.status == 200:
-                data = await resp.json()
-                content = base64.b64decode(data["content"]).decode("utf-8")
-                return json.loads(content)
+                text = await resp.text()
+                return json.loads(text)
             else:
+                print(f"Ошибка чтения: {resp.status}")
                 return None
 
 async def write_data(data: Dict[str, Any], commit_message: str) -> bool:
-    """Записывает data.json в репозиторий."""
+    """Записывает data.json через GitHub API (с токеном)"""
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
     # Получаем текущий SHA
     async with aiohttp.ClientSession() as session:
@@ -75,7 +75,6 @@ async def write_data(data: Dict[str, Any], commit_message: str) -> bool:
 
 # ---------- Вспомогательные функции ----------
 def extract_youtube_id(url: str) -> Optional[str]:
-    """Извлекает ID видео YouTube из ссылки."""
     parsed = urlparse(url)
     if parsed.hostname in ("youtu.be", "www.youtu.be"):
         return parsed.path[1:]
@@ -94,7 +93,7 @@ def is_admin(user_id: int, data: Dict) -> bool:
 async def cmd_start(message: Message):
     data = await read_data()
     if not data:
-        await message.answer("❌ Ошибка загрузки базы данных. Попробуйте позже.")
+        await message.answer("❌ Ошибка загрузки данных.")
         return
     if is_admin(message.from_user.id, data):
         await message.answer(
@@ -120,13 +119,13 @@ async def cmd_cancel(message: Message, state: FSMContext):
 async def cmd_list(message: Message):
     data = await read_data()
     if not data:
-        await message.answer("❌ Не удалось загрузить данные.")
+        await message.answer("❌ Ошибка загрузки данных.")
         return
     if not is_admin(message.from_user.id, data):
         await message.answer("⛔ У вас нет прав.")
         return
 
-    videos = data.get("videos", [])[-10:][::-1]  # последние 10, от новых к старым
+    videos = data.get("videos", [])[-10:][::-1]
     if not videos:
         await message.answer("📭 Видео пока нет.")
         return
@@ -168,7 +167,6 @@ async def cmd_delete(message: Message):
     else:
         await message.answer("❌ Ошибка сохранения в GitHub.")
 
-# ---------- Добавление / удаление админов (только владелец) ----------
 async def modify_admin(message: Message, add: bool):
     if message.from_user.id != OWNER_ID:
         await message.answer("⛔ Только создатель может управлять админами.")
@@ -180,7 +178,6 @@ async def modify_admin(message: Message, add: bool):
         return
 
     arg = parts[1].strip()
-    # Если это упоминание @username — нужно получить user_id через Telegram API
     if arg.startswith("@"):
         try:
             chat = await bot.get_chat(arg)
@@ -278,7 +275,7 @@ async def process_url(message: Message, state: FSMContext):
     await message.answer(
         "🖼 Теперь отправь ссылку на превью (картинку).\n"
         "Если это YouTube и хочешь авто-превью, напиши: авто\n"
-        "Можно также прислать фото напрямую (я пока сохраню ссылку позже)."
+        "Можно также прислать фото напрямую."
     )
 
 @dp.message(AddVideoStates.waiting_for_thumbnail, F.text)
@@ -290,7 +287,6 @@ async def process_thumbnail_text(message: Message, state: FSMContext):
     if text.lower() == "авто" and youtube_id:
         thumbnail = f"https://img.youtube.com/vi/{youtube_id}/hqdefault.jpg"
     else:
-        # Проверяем, что это валидный URL
         if not text.startswith(("http://", "https://")):
             await message.answer("❌ Пожалуйста, отправь ссылку, начинающуюся с http:// или https://, или напиши 'авто'.")
             return
@@ -301,8 +297,6 @@ async def process_thumbnail_text(message: Message, state: FSMContext):
 
 @dp.message(AddVideoStates.waiting_for_thumbnail, F.photo)
 async def process_thumbnail_photo(message: Message, state: FSMContext):
-    # Если прислали фото — получаем ссылку на файл через Telegram (не сохраняем на сервер)
-    # Для простоты используем самое большое фото и строим ссылку через bot.get_file
     photo = message.photo[-1]
     file = await bot.get_file(photo.file_id)
     file_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file.file_path}"
@@ -317,19 +311,16 @@ async def process_title(message: Message, state: FSMContext):
         await message.answer("❌ Название слишком короткое. Попробуй ещё раз.")
         return
     await state.update_data(title=title)
-    # Загружаем категории
     full_data = await read_data()
     if not full_data:
         await message.answer("❌ Ошибка загрузки категорий. Попробуй позже.")
         await state.clear()
         return
     categories = full_data.get("categories", [])
-    # Создаём клавиатуру с категориями + кнопка "Новая категория"
     kb = InlineKeyboardMarkup(inline_keyboard=[])
     for cat in categories:
         kb.inline_keyboard.append([InlineKeyboardButton(text=cat, callback_data=f"cat_{cat}")])
     kb.inline_keyboard.append([InlineKeyboardButton(text="✨ Новая категория", callback_data="cat_new")])
-
     await state.set_state(AddVideoStates.waiting_for_category)
     await message.answer("🏷 Выбери категорию:", reply_markup=kb)
 
@@ -344,7 +335,6 @@ async def process_category_callback(callback: CallbackQuery, state: FSMContext):
     if data.startswith("cat_"):
         category = data[4:]
         await state.update_data(category=category)
-        # Сохраняем видео
         await save_video(callback.message, state)
         await callback.answer()
 
@@ -372,7 +362,6 @@ async def save_video(msg: Message, state: FSMContext):
         await state.clear()
         return
 
-    # Добавляем категорию, если её нет
     if category not in full_data["categories"]:
         full_data["categories"].append(category)
 
@@ -394,19 +383,16 @@ async def save_video(msg: Message, state: FSMContext):
         await msg.answer(f"✅ Видео «{title}» добавлено! ID: {next_id}")
     else:
         await msg.answer("❌ Ошибка сохранения в GitHub. Попробуй ещё раз.")
-
     await state.clear()
 
-# ---------- Запуск с таймаутом для GitHub Actions (48 минут) ----------
+# ---------- Запуск с таймаутом ----------
 async def main():
-    # Устанавливаем webhook? Нет, используем polling
     await bot.delete_webhook(drop_pending_updates=True)
     await dp.start_polling(bot)
 
 def run_with_timeout():
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
-    # Работаем 48 минут, потом завершаем (для cron)
     try:
         loop.run_until_complete(asyncio.wait_for(main(), timeout=48*60))
     except asyncio.TimeoutError:
