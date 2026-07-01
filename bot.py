@@ -21,9 +21,7 @@ bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher(storage=MemoryStorage())
 
 KNOWN_SOURCES = [
-    "sex-studentki.live",
-    "rusoska.com",
-    "xhamster.com"
+    "sex-studentki.live"
 ]
 
 HEADERS = {
