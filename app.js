@@ -4,7 +4,7 @@ let currentCategory = 'all';
 let searchQuery = '';
 let debounceTimeout = null;
 
-// Загрузка данных из data.json
+// Загрузка данных из data.json на GitHub
 async function loadData() {
     const loader = document.querySelector('.loader');
     const grid = document.querySelector('.video-grid');
@@ -15,17 +15,30 @@ async function loadData() {
     noResults.style.display = 'none';
 
     try {
-        const url = `./data.json?t=${Date.now()}`;
-        const resp = await fetch(url);
-        if (!resp.ok) throw new Error('HTTP error');
+        // Загружаем прямо с GitHub Raw
+        const url = `https://raw.githubusercontent.com/aziuz20070721/rxmvhub/main/data.json?t=${Date.now()}`;
+        const resp = await fetch(url, {
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (!resp.ok) throw new Error(`HTTP error! status: ${resp.status}`);
+        
         const data = await resp.json();
         allVideos = data.videos || [];
         allCategories = data.categories || [];
+        
+        if (allVideos.length === 0) {
+            grid.innerHTML = '<div style="text-align:center; padding:40px; color: var(--text-secondary);">📦 Видео еще не загружены. Парсер работает...</div>';
+            return;
+        }
+        
         renderCategories();
         renderVideos();
     } catch (err) {
-        console.error(err);
-        grid.innerHTML = '<div style="text-align:center; padding:40px;">❌ Ошибка загрузки видео</div>';
+        console.error('Ошибка загрузки:', err);
+        grid.innerHTML = `<div style="text-align:center; padding:40px; color: var(--text-secondary);">❌ Ошибка загрузки видео<br><small>${err.message}</small></div>`;
     } finally {
         loader.style.display = 'none';
     }
