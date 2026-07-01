@@ -12,7 +12,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 from aiogram.types import ReplyKeyboardMarkup, KeyboardButton, ReplyKeyboardRemove
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
-GITHUB_TOKEN = os.environ.get("GH_TOKEN")
+GITHUB_TOKEN = os.environ.get("REPO_TOKEN")
 OWNER_ID = 5980528489
 GITHUB_REPO = "aziuz20070721/rxmvhub"
 DATA_FILE = "data.json"
