@@ -1,4 +1,3 @@
-cat > /mnt/user-data/outputs/rxmvhub/bot.py << 'PYEOF'
 import asyncio
 import json
 import os
@@ -27,7 +26,7 @@ GITHUB_REPO = "aziuz20070721/rxmvhub"
 DATA_FILE = "data.json"
 LOG_CHANNEL = -1004479533617
 
-KNOWN_SOURCES = ["sex-studentki.live"]
+KNOWN_SOURCES = ["sex-studentki.live", "rusoska.com", "xhamster.com"]
 
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -649,5 +648,3 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
-PYEOF
-echo "Done"
